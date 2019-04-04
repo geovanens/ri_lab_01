@@ -66,6 +66,10 @@ class Brasil247Spider(scrapy.Spider):
         self.writer_data(item)
 
     def parse(self, response):
+        '''
+        Pega todos os links listados em uma página semente e os encaminha para
+        o método que extrai os detalhes solicitados
+        '''
         links = [i for i in response.css('article a::attr(href)').getall()][:20]
         for link in links:
                 yield response.follow(link, callback=self.get_details)  
