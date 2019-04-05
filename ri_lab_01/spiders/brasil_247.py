@@ -12,6 +12,7 @@ class Brasil247Spider(scrapy.Spider):
     name = 'brasil_247'
     allowed_domains = ['brasil247.com']
     start_urls = []
+    
 
     def __init__(self, *a, **kw):
         super(Brasil247Spider, self).__init__(*a, **kw)
@@ -34,6 +35,7 @@ class Brasil247Spider(scrapy.Spider):
             writer.writerow(row)
 
     def text_formater(self, text):
+        text[0] = ' - '.join(text[0].split(" - ")[1:])
         text = [i.strip() for i in text]
         return "\n".join(text)
 
@@ -54,14 +56,14 @@ class Brasil247Spider(scrapy.Spider):
     def get_details(self, response):
         item = RiLab01Item()
         title = response.css('h1::text').get(default='').strip()
-        paragraphs = response.css('p::text').getall()
-        sub_title = paragraphs[1] or ''
-        author = response.xpath('//*[@id="wrapper"]/div[6]/section[1]/div[1]/p[2]/strong/text()').get().replace("-", "").strip()
+        paragraphs = response.css('p').xpath('string()').getall()
+        sub_title = paragraphs[2]
+        author = paragraphs[5].split(" - ")[0].strip()
         date = paragraphs[0]
-        hour = paragraphs[2]
+        hour = paragraphs[3]
         hour = hour.strip().split()[-1]
         section = response.css('body::attr(id)').get().split("-")[-1]
-        text = paragraphs[4:]
+        text = paragraphs[5:]
         text.pop()
         text = self.text_formater(text)
         item['title'] = title
@@ -71,13 +73,18 @@ class Brasil247Spider(scrapy.Spider):
         item['section'] = section
         item['text'] = text
         item['url'] = response.url
-        self.writer_data(item)
+        #self.writer_data(item)
+        #save = [item['title'], item['sub_title'], item['author'], item['date'], item['section'], item['text'], item['url']]
+        #print(','.join(save))
+        yield item
 
     def parse(self, response):
         '''
         Pega todos os links listados em uma página semente e os encaminha para
         o método que extrai os detalhes solicitados
         '''
+        url = response.url.split(':')[-1]
         links = [i for i in response.css('article a::attr(href)').getall()]
+        links = [i for i in links if i.startswith(url)]
         for link in links:
                 yield response.follow(link, callback=self.get_details)  
