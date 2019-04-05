@@ -21,20 +21,20 @@ class Brasil247Spider(scrapy.Spider):
 
     def writer_data(self, item):
         row = [
-            item['title'].encode('utf-8'),
-            item['sub_title'].encode('utf-8'),
-            item['author'].encode('utf-8'),
-            item['date'].encode('utf-8'),
-            item['section'].encode('utf-8'),
-            item['text'].encode('utf-8'),
-            item['url'].encode('utf-8')
+            item['title'],
+            item['sub_title'],
+            item['author'],
+            item['date'],
+            item['section'],
+            item['text'],
+            item['url']
         ]
         with open(r'output/results.csv', 'a') as f:
             writer = csv.writer(f)
             writer.writerow(row)
 
     def text_formater(self, text):
-        text = [i.strip() for i in text if i.strip()]
+        text = [i.strip() for i in text]
         return "\n".join(text)
 
     def complement_string(self, string, size):
@@ -53,15 +53,23 @@ class Brasil247Spider(scrapy.Spider):
 
     def get_details(self, response):
         item = RiLab01Item()
-        item['title'] = response.xpath('//*[@id="wrapper"]/div[5]/h1/text()').get().strip()
-        item['sub_title'] = response.xpath('//*[@id="wrapper"]/div[5]/p[2]/text()').get().strip()
-        item['author'] = response.xpath('//*[@id="wrapper"]/div[6]/section[1]/div[1]/p[2]/strong/text()').get().replace("-", "").strip()
-        date = response.xpath('//*[@id="wrapper"]')[0].css('p::text')[0].get().strip().strip()
-        hour = response.xpath('//*[@id="wrapper"]')[0].css('p::text')[2].get().strip().split()[-1]
+        title = response.css('h1::text').get(default='').strip()
+        paragraphs = response.css('p::text').getall()
+        sub_title = paragraphs[1] or ''
+        author = response.xpath('//*[@id="wrapper"]/div[6]/section[1]/div[1]/p[2]/strong/text()').get().replace("-", "").strip()
+        date = paragraphs[0]
+        hour = paragraphs[2]
+        hour = hour.strip().split()[-1]
+        section = response.css('body::attr(id)').get().split("-")[-1]
+        text = paragraphs[4:]
+        text.pop()
+        text = self.text_formater(text)
+        item['title'] = title
+        item['sub_title'] = sub_title
+        item['author'] = author
         item['date'] = self.date_formater(date, hour)
-        item['section'] = response.css('body::attr(id)').get().split("-")[-1]
-        all_text = response.xpath('//*[@id="wrapper"]/div[6]')[0].css('p::text').getall()
-        item['text'] = self.text_formater(all_text)
+        item['section'] = section
+        item['text'] = text
         item['url'] = response.url
         self.writer_data(item)
 
@@ -70,6 +78,6 @@ class Brasil247Spider(scrapy.Spider):
         Pega todos os links listados em uma página semente e os encaminha para
         o método que extrai os detalhes solicitados
         '''
-        links = [i for i in response.css('article a::attr(href)').getall()][:20]
+        links = [i for i in response.css('article a::attr(href)').getall()]
         for link in links:
                 yield response.follow(link, callback=self.get_details)  
