@@ -20,29 +20,26 @@ class Brasil247Spider(scrapy.Spider):
                 data = json.load(json_file)
         self.start_urls = list(data.values())
 
-    def writer_data(self, item):
-        row = [
-            item['title'],
-            item['sub_title'],
-            item['author'],
-            item['date'],
-            item['section'],
-            item['text'],
-            item['url']
-        ]
-        with open(r'output/results.csv', 'a') as f:
-            writer = csv.writer(f)
-            writer.writerow(row)
-
     def text_formater(self, text):
+        """
+        Formata o texto bruto, removendo o autor da noticia e os caracteres desnecessários
+        """
         text[0] = ' - '.join(text[0].split(" - ")[1:])
         text = [i.strip() for i in text]
         return "\n".join(text)
 
     def complement_string(self, string, size):
+        """
+        Utilizado como auxiliar de date_formater acrescenta os '0's necessários para que
+        data e hora fiquem no formato solicitado
+        """
         return '0'*(size-len(string))+string
 
     def date_formater(self, date, hour):
+        """
+        Recebe dados brutos de data (dd.mm.aaaa) e hora (hh.mm)
+        e formata para que a saída seja no formato dd/mm/aaaa hh:mm:ss
+        """
         date = date.split(".")
         day = self.complement_string(date[0], 2)
         mounth = self.complement_string(date[1], 2)
@@ -54,14 +51,20 @@ class Brasil247Spider(scrapy.Spider):
 
 
     def get_details(self, response):
+        """
+        Dada uma response de uma página de nóticias retorna um item 
+        contendo todos os dados solicitados no lab
+        """
         item = RiLab01Item()
         title = response.css('h1::text').get(default='').strip()
         paragraphs = response.css('p').xpath('string()').getall()
         sub_title = paragraphs[2]
-        author = paragraphs[5].split(" - ")[0].strip()
+        try:
+            author = response.css('strong').xpath('string()').get().replace("-", "").strip()
+        except AttributeError:
+            author = paragraphs[5].split("-")[0].strip()
         date = paragraphs[0]
-        hour = paragraphs[3]
-        hour = hour.strip().split()[-1]
+        hour = response.css('p.meta::text').get().strip().split()[-1]
         section = response.css('body::attr(id)').get().split("-")[-1]
         text = paragraphs[5:]
         text.pop()
